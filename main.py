@@ -91,6 +91,9 @@ def Runner(client): # Better name for this?
     imageId = SearchForImage(hires_image_url)
     UpdateAvatar(imageId)
     
+    time.sleep(30) # maybe schedule each individually?
+
+
     ## Banner
     print(f"BANNER URL: {user.profile_banner_url}")
     UploadImage(user.profile_banner_url)
@@ -103,10 +106,8 @@ def main():
     client = Client('en-US')
     client.load_cookies('cookies.json')
 
-    # Run immediately on boot
-    Runner(client)
 
-    # Then, run every 24hours
+    # run every 24hours
     schedule.every(24).hours.do(Runner(client))
     while True:
         schedule.run_pending()
