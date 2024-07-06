@@ -14,20 +14,23 @@ AUTH_TOKEN = os.getenv("AUTH_TOKEN")
 URL = os.getenv("URL")
 USER = os.getenv("USER")
 
+# ... is this bad practice? It's not like it's going to change.
+client = Client('en-US')
+client.load_cookies('cookies.json')
+
+
 def UpdateRequest(payload):
     headers = {'Authorization': 'bearer ' + AUTH_TOKEN}
     response = requests.post("https://" + URL + '/api/i/update', json=payload, headers=headers)
     print("UpdateRequest: Processing response...")
-    ProcessResponse(response.status_code, response.json)
+    ProcessResponse(response)
 
-# Maybe add a return for this.
-def ProcessResponse(status_code, json):
-    if status_code == 200 or status_code == 204:
+def ProcessResponse(response):
+    if response.status_code == 200 or response.status_code == 204:
         print("success!")
     else:
         print("failed!")
-        print(f"Status Code: {status_code}")
-        print(json) #TODO: Output the JSON cleanly
+        response.raise_for_status()
 
 def UpdateBanner(imageId):
     payload = {
@@ -51,13 +54,14 @@ def UploadImage(url):
     }
     response = requests.post("https://" + URL + '/api/drive/files/upload-from-url', json=payload, headers=headers)
     print("UploadImage: Processing response...")
-    ProcessResponse(response.status_code, response.json)
+    ProcessResponse(response)
     # return response code?
 
 def SearchForImage(imageURL):
     response = requests.get(imageURL)
+    ProcessResponse(response)
+
     hash_md5 = hashlib.md5()
-    
     for chunk in response.iter_content(chunk_size=4096):
         hash_md5.update(chunk)
     
@@ -68,7 +72,7 @@ def SearchForImage(imageURL):
 
     response = requests.post("https://" + URL + '/api/drive/files/find-by-hash', json=payload)
     print("SearchForImage: Processing response...")
-    ProcessResponse(response.status_code, response.json())
+    ProcessResponse(response)
     print(response.json())
     json_data = response.json()
     
@@ -80,35 +84,45 @@ def SearchForImage(imageURL):
     return imageId
 
 
-def Runner(client): # Better name for this?
+def Runner(): # Better name for this?
     user = client.get_user_by_screen_name(USER)
 
     ## Avatar
     # Process the image url to grab a higher res one
-    hires_image_url = user.profile_image_url.replace("_normal", "_400x400")
-    print(f"AVATAR URL: {hires_image_url}")
-    UploadImage(hires_image_url)
-    imageId = SearchForImage(hires_image_url)
-    UpdateAvatar(imageId)
-    
-    time.sleep(30) # maybe schedule each individually?
+    try:
+        hires_image_url = user.profile_image_url.replace("_normal", "_400x400")
+        print(f"AVATAR URL: {hires_image_url}")
+        UploadImage(hires_image_url)
+        imageId = SearchForImage(hires_image_url)
+        UpdateAvatar(imageId)
+        
+        time.sleep(30) # maybe schedule each individually?
 
 
-    ## Banner
-    print(f"BANNER URL: {user.profile_banner_url}")
-    UploadImage(user.profile_banner_url)
-    imageId = SearchForImage(user.profile_banner_url)
-    UpdateBanner(imageId)
+        ## Banner
+        print(f"BANNER URL: {user.profile_banner_url}")
+        UploadImage(user.profile_banner_url)
+        imageId = SearchForImage(user.profile_banner_url)
+        UpdateBanner(imageId)
+    except requests.exceptions.HTTPError as http_err:
+        print(f"A HTTP error has occurred: {http_err}")
+    except requests.exceptions.RequestException as req_err:
+        print(f"A request error has occured: {req_err}")
+    except Exception as err:
+        print(f"An error has occurred. {err}")
+    finally:
+        #TODO: maybe make it so It'll run it sooner if it fails?
+        print("Trying again in 24 hours...")
 
 
 def main():
     print("Running!")
-    client = Client('en-US')
-    client.load_cookies('cookies.json')
 
+    # run on start
+    Runner()
 
-    # run every 24hours
-    schedule.every(24).hours.do(Runner(client))
+    # Then, run every 24hours
+    schedule.every(24).hours.do(Runner)
     while True:
         schedule.run_pending()
         time.sleep(300) 
