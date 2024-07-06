@@ -1,0 +1,4 @@
+requests
+twikit
+schedule
+python-dotenv
