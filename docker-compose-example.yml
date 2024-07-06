@@ -1,0 +1,15 @@
+version: '3.4'
+
+services:
+  twittermisskeyprofileupdater:
+    image: twittermisskeyprofileupdater
+    container_name: misskeyBotProfile
+    restart: always
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      - URL=misskeyinstance.com
+      - AUTH_TOKEN=MisskeyAPIToken
+      - USER=TwitterUser
+    
